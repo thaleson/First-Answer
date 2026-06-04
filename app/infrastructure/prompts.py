@@ -1,7 +1,11 @@
+"""Prompt helpers for the Groq extraction request."""
+
 from typing import TypedDict
 
 
 class MessagePayload(TypedDict):
+    """Represent a chat message payload expected by the Groq API."""
+
     role: str
     content: str
 
@@ -26,6 +30,16 @@ Rules:
 
 
 def build_extraction_messages(text: str, monitored_brand: str) -> list[MessagePayload]:
+    """Build the chat message sequence sent to the extraction model.
+
+    Args:
+        text (str): Source text that should be analyzed.
+        monitored_brand (str): Brand that must be checked explicitly.
+
+    Returns:
+        list[MessagePayload]: Ordered chat messages with system instructions and user content.
+    """
+
     user_prompt = f"""Analyze the text below.
 
 Monitored brand:

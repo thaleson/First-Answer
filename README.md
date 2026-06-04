@@ -49,6 +49,9 @@ Descrição:
 - `GROQ_MODEL`: modelo usado na extração.
 - `LOG_LEVEL`: nível de logging da aplicação.
 
+O carregamento do `.env` é automático tanto na CLI quanto no Streamlit.
+Se as variáveis já estiverem exportadas no ambiente, elas continuam tendo prioridade sobre o conteúdo do `.env`.
+
 ## Instalação local
 
 Recomendado usar ambiente virtual:
@@ -208,18 +211,62 @@ Fluxo resumido:
 4. A resposta é validada
 5. O resultado final é devolvido em JSON
 
-## Como usei IA no desenvolvimento
+## Decisões Arquiteturais
 
-A IA foi usada como apoio de engenharia para:
+As decisões principais deste projeto estão alinhadas com [docs/decisions/adr_001_llm_strategy.md](docs/decisions/adr_001_llm_strategy.md).
 
-- consolidar e interpretar os PRDs
-- propor a arquitetura inicial
-- estruturar as camadas
-- implementar os módulos de forma incremental
-- revisar consistência de imports e dependências entre camadas
-- montar a interface Streamlit sem colocar regra de negócio na UI
+Resumo das decisões:
+
+- o mecanismo principal de extração é uma LLM via Groq
+- a resposta da LLM é validada estruturalmente com Pydantic
+- a organização do código segue uma Clean Architecture simplificada
+- o provider pode ser trocado no futuro sem alterar o `ExtractBrandsUseCase`, desde que implemente o contrato `BrandExtractor`
+
+## Como usou ferramentas de IA
+
+Ferramentas utilizadas:
+
+- LLM para leitura e consolidação dos PRDs
+- LLM para apoio na estruturação arquitetural
+- LLM para apoio na implementação incremental
+
+Onde ajudaram:
+
+- na interpretação dos requisitos espalhados em múltiplos documentos
+- na decomposição do trabalho em etapas pequenas e verificáveis
+- na aceleração da implementação de boilerplate estrutural, testes e documentação
+- na revisão de consistência entre camadas, imports e responsabilidades
+
+Onde atrapalharam:
+
+- em alguns momentos sugeriram estruturas genéricas demais para o contexto do desafio
+- houve necessidade de corrigir detalhes específicos de execução, como integração com Streamlit, carregamento de `.env` e request HTTP para a Groq
+- também houve necessidade de ajustar propostas para aderir exatamente ao que os PRDs pediam, sem extrapolar escopo
+
+Como os problemas foram identificados:
+
+- por execução real da CLI e do Streamlit
+- por leitura crítica dos PRDs e ADRs
+- por validação com `pytest`
+- por validação com `pre-commit`
+- por testes reais contra a API da Groq e, ao final, contra Docker
 
 A implementação foi guiada pelos documentos do projeto e revisada passo a passo antes de avançar para cada etapa.
+
+## Testes
+
+Os testes automatizados cobrem:
+
+- execução do caso de uso
+- validações de entrada
+- validação do schema de saída
+- remoção da marca monitorada de `other_brands`
+- deduplicação de marcas
+- propagação de erros do extrator
+
+Resultado atual:
+
+- 13 testes passando
 
 ## Onde isso quebra
 
@@ -230,26 +277,125 @@ Limitações atuais da solução:
 - mesmo com prompt restrito e validação, a resposta da LLM ainda pode vir vazia, inválida ou fora do esquema esperado
 - nomes de marcas podem ter ambiguidades contextuais
 - não há fallback local com regex, NER ou lista estática
-- Docker e testes automatizados ainda não foram implementados nesta etapa do projeto
+- o ambiente Docker foi validado localmente, mas não foi testado em múltiplos sistemas operacionais ou ambientes de cloud
+
+## Resultados Obtidos
+
+Execução real dos três casos oficiais com integração ativa na Groq:
+
+- Caso 1: a marca monitorada `Nubank` foi encontrada, e o retorno incluiu `Banco Inter`, `C6 Bank` e `BTG Pactual`.
+- Caso 2: a marca monitorada `Nike` não foi encontrada no texto oficial, e o retorno incluiu `Olympikus`, `Asics`, `Mizuno` e `New Balance`.
+- Caso 3: a marca monitorada `First Answer` foi encontrada, e o retorno incluiu `Profound`, `Brandlight`, `Peec AI`, `AthenaHQ`, `Gemini`, `Claude`, `Perplexity`, `Copilot` e `ChatGPT`.
+
+## Observações
+
+- A solução utiliza Groq + LLM como mecanismo principal de extração de marcas.
+- A saída é validada estruturalmente com Pydantic antes de ser devolvida à interface.
+- A arquitetura segue princípios SOLID e uma Clean Architecture simplificada.
+- Foram implementados testes automatizados offline, sem dependência da Groq real.
+
+## Execução com Docker
+
+Build da imagem e dos serviços:
+
+```bash
+docker compose build
+```
+
+O serviço `app` é uma CLI. Ele executa os 3 casos oficiais, imprime os resultados em JSON e finaliza o processo.
+
+Executar apenas a CLI no container:
+
+```bash
+docker compose run --rm app
+```
+
+O serviço `streamlit` é a interface visual. Ele permanece em execução até ser interrompido.
+
+Subir apenas a interface Streamlit:
+
+```bash
+docker compose up streamlit
+```
+
+Após subir o serviço, a interface fica disponível em:
+
+```text
+http://localhost:8502
+```
+
+Se quiser subir os serviços definidos no compose de uma vez:
+
+```bash
+docker compose up
+```
+
+Nesse cenário, o serviço `app` executa a CLI e termina após processar os 3 casos oficiais, enquanto o serviço `streamlit` continua rodando.
+
+Para encerrar os containers:
+
+```bash
+docker compose down
+```
 
 ## Outputs
 
-Seção reservada para colar os outputs finais dos 3 casos oficiais depois da execução real.
+Outputs reais obtidos na execução final dos três casos oficiais.
 
 ### Caso 1
 
 ```json
-{}
+{
+  "case_id": "case-1",
+  "title": "Caso 1 - Nubank",
+  "output": {
+    "monitored_brand_found": true,
+    "other_brands": [
+      "Banco Inter",
+      "C6 Bank",
+      "BTG Pactual"
+    ]
+  }
+}
 ```
 
 ### Caso 2
 
 ```json
-{}
+{
+  "case_id": "case-2",
+  "title": "Caso 2 - Nike",
+  "output": {
+    "monitored_brand_found": false,
+    "other_brands": [
+      "Olympikus",
+      "Asics",
+      "Mizuno",
+      "New Balance"
+    ]
+  }
+}
 ```
 
 ### Caso 3
 
 ```json
-{}
+{
+  "case_id": "case-3",
+  "title": "Caso 3 - First Answer",
+  "output": {
+    "monitored_brand_found": true,
+    "other_brands": [
+      "Profound",
+      "Brandlight",
+      "Peec AI",
+      "AthenaHQ",
+      "Gemini",
+      "Claude",
+      "Perplexity",
+      "Copilot",
+      "ChatGPT"
+    ]
+  }
+}
 ```

@@ -1,5 +1,6 @@
 pydantic>=2.7,<3.0
 streamlit>=1.36,<2.0
+python-dotenv>=1.0,<2.0
 pytest>=8.2,<9.0
 pytest-mock>=3.14,<4.0
 black>=24.4,<25.0

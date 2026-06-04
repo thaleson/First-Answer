@@ -1,3 +1,5 @@
+"""CLI entrypoint for running the official brand extraction cases."""
+
 import argparse
 import json
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ from app.shared.logger import configure_logging
 
 @dataclass(frozen=True, slots=True)
 class OfficialCase:
+    """Represent one official challenge case used by the CLI and Streamlit UI."""
+
     case_id: str
     title: str
     monitored_brand: str
@@ -116,6 +120,12 @@ Para empresas que estão investindo em GEO (Generative Engine Optimization), oti
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser for official case execution.
+
+    Returns:
+        argparse.ArgumentParser: Configured parser for selecting challenge cases.
+    """
+
     parser = argparse.ArgumentParser(
         description="Run official brand extraction cases through Groq.",
     )
@@ -129,6 +139,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_case(case: OfficialCase) -> dict[str, object]:
+    """Execute the use case for a single official challenge input.
+
+    Args:
+        case (OfficialCase): Official challenge case to execute.
+
+    Returns:
+        dict[str, object]: Serializable execution payload with input and output data.
+    """
+
     settings = GroqSettings.from_env()
     configure_logging(settings.log_level)
     use_case = build_extract_brands_use_case_with_groq()
@@ -150,6 +169,15 @@ def run_case(case: OfficialCase) -> dict[str, object]:
 
 
 def run_selected_cases(selected_case_id: str) -> list[dict[str, object]]:
+    """Execute one or all official cases based on the selected identifier.
+
+    Args:
+        selected_case_id (str): Case identifier or the `all` sentinel.
+
+    Returns:
+        list[dict[str, object]]: List of serializable results for the executed cases.
+    """
+
     if selected_case_id == "all":
         return [run_case(case) for case in OFFICIAL_CASES]
 
@@ -160,6 +188,12 @@ def run_selected_cases(selected_case_id: str) -> list[dict[str, object]]:
 
 
 def main() -> int:
+    """Run the CLI workflow and print JSON results to stdout.
+
+    Returns:
+        int: Process exit code for the CLI execution.
+    """
+
     parser = build_parser()
     args = parser.parse_args()
     results = run_selected_cases(args.case)

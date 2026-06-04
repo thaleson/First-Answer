@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    working_dir: /workspace
+    command: python main.py
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    working_dir: /workspace
+    command: streamlit run app/presentation/streamlit_app.py --server.address=0.0.0.0 --server.port=8501
+    ports:
+      - "8502:8501"

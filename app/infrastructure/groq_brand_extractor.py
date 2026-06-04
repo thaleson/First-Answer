@@ -1,3 +1,5 @@
+"""Groq-based implementation of the brand extraction contract."""
+
 import json
 import urllib.error
 import urllib.request
@@ -12,11 +14,35 @@ from app.shared.logger import get_logger
 
 
 class GroqBrandExtractor(BrandExtractor):
+    """Extract brands by calling Groq's chat completions endpoint.
+
+    This implementation is responsible for building the request payload, sending the HTTP
+    request, and validating the returned JSON against the application output schema.
+
+    Attributes:
+        _settings (GroqSettings): Runtime settings used for request configuration.
+        _logger (Logger): Logger used to record request lifecycle events and errors.
+    """
+
     def __init__(self, settings: GroqSettings | None = None) -> None:
         self._settings = settings or GroqSettings.from_env()
         self._logger = get_logger(self.__class__.__name__)
 
     def extract(self, text: str, monitored_brand: str) -> BrandExtractionResult:
+        """Extract brands for the provided text using the Groq API.
+
+        Args:
+            text (str): Source text that will be analyzed.
+            monitored_brand (str): Brand that must be checked explicitly.
+
+        Returns:
+            BrandExtractionResult: Domain entity containing the extractor result.
+
+        Raises:
+            GroqConnectionError: If the HTTP request cannot be completed successfully.
+            InvalidLLMResponseError: If the API response is empty, malformed, or invalid.
+        """
+
         self._logger.info("Starting Groq brand extraction.")
         payload = self._build_payload(text=text, monitored_brand=monitored_brand)
         response_content = self._send_request(payload)
@@ -28,6 +54,16 @@ class GroqBrandExtractor(BrandExtractor):
         )
 
     def _build_payload(self, text: str, monitored_brand: str) -> dict[str, object]:
+        """Build the request payload expected by the Groq API.
+
+        Args:
+            text (str): Source text that will be analyzed.
+            monitored_brand (str): Brand that must be checked explicitly.
+
+        Returns:
+            dict[str, object]: Serialized payload ready for JSON encoding.
+        """
+
         return {
             "model": self._settings.model,
             "temperature": self._settings.temperature,
@@ -41,13 +77,23 @@ class GroqBrandExtractor(BrandExtractor):
         }
 
     def _send_request(self, payload: dict[str, object]) -> str:
+        """Send the extraction request to Groq and return the message content.
+
+        Args:
+            payload (dict[str, object]): Serialized request payload.
+
+        Returns:
+            str: Raw textual content returned by the model.
+
+        Raises:
+            GroqConnectionError: If the request fails at the HTTP or network layer.
+            InvalidLLMResponseError: If the response envelope cannot be interpreted.
+        """
+
         request = urllib.request.Request(
             url=self._settings.api_url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self._settings.api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=self._build_headers(),
             method="POST",
         )
 
@@ -74,7 +120,33 @@ class GroqBrandExtractor(BrandExtractor):
 
         return self._extract_message_content(response_body)
 
+    def _build_headers(self) -> dict[str, str]:
+        """Build HTTP headers for the Groq API request.
+
+        Returns:
+            dict[str, str]: Headers required by the chat completions endpoint.
+        """
+
+        return {
+            "Authorization": f"Bearer {self._settings.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": self._settings.user_agent,
+        }
+
     def _extract_message_content(self, response_body: str) -> str:
+        """Extract the assistant message content from a raw API response.
+
+        Args:
+            response_body (str): Raw JSON body returned by the Groq API.
+
+        Returns:
+            str: Model message content extracted from the response envelope.
+
+        Raises:
+            InvalidLLMResponseError: If the response envelope is malformed or empty.
+        """
+
         try:
             response_data = json.loads(response_body)
             content = response_data["choices"][0]["message"]["content"]
@@ -93,6 +165,18 @@ class GroqBrandExtractor(BrandExtractor):
         return content
 
     def _parse_output(self, response_content: str) -> BrandExtractionOutput:
+        """Validate the model response against the application output schema.
+
+        Args:
+            response_content (str): Raw model content expected to represent JSON output.
+
+        Returns:
+            BrandExtractionOutput: Parsed and validated output model.
+
+        Raises:
+            InvalidLLMResponseError: If the model output is not valid JSON or schema-compliant.
+        """
+
         try:
             return BrandExtractionOutput.model_validate_json(response_content)
         except ValueError:

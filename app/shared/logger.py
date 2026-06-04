@@ -1,7 +1,15 @@
+"""Logging helpers shared by the application."""
+
 import logging
 
 
 def configure_logging(level: str) -> None:
+    """Configure the root logging behavior for the current process.
+
+    Args:
+        level (str): Logging level name used to configure the root logger.
+    """
+
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -9,4 +17,13 @@ def configure_logging(level: str) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Return a named logger instance.
+
+    Args:
+        name (str): Logger name to retrieve.
+
+    Returns:
+        logging.Logger: Named logger instance.
+    """
+
     return logging.getLogger(name)

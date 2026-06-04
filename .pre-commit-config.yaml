@@ -1,22 +1,32 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+  - repo: local
     hooks:
       - id: end-of-file-fixer
+        name: fix end of files
+        entry: python3 scripts/fix_end_of_file.py
+        language: system
+        types: [text]
+
       - id: trailing-whitespace
+        name: trim trailing whitespace
+        entry: python3 scripts/fix_trailing_whitespace.py
+        language: system
+        types: [text]
 
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
       - id: black
+        name: black
+        entry: python3 -m black
+        language: system
+        types_or: [python]
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
       - id: isort
+        name: isort
+        entry: python3 -m isort
+        language: system
+        types_or: [python]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
-    hooks:
       - id: ruff
-        args: [--fix]
+        name: ruff
+        entry: python3 -m ruff check --fix
+        language: system
+        types_or: [python]
